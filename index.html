@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quản lý mật ong</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f6f7f3;--card:#fff;--ink:#20251f;--muted:#737b70;--line:#e6e9e1;--green:#315c3b;--green2:#eaf2e9;--gold:#c28a2c;--red:#b33b32;--shadow:0 8px 28px #1b2b1710}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;font-weight:650}
+.primary{background:var(--green);color:#fff}.secondary{background:var(--green2);color:var(--green)}.danger{background:#fff0ee;color:var(--red)}.ghost{background:transparent;color:var(--muted);padding:7px 9px}
+.wrap{max-width:1180px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}.brand{display:flex;gap:12px;align-items:center}.logo{width:46px;height:46px;border-radius:14px;background:#f2e6c9;display:grid;place-items:center;font-size:25px}.brand h1{font-size:21px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}.metric span{color:var(--muted);font-size:13px}.metric strong{display:block;font-size:29px;margin-top:7px;letter-spacing:-1px}.metric small{color:var(--muted)}
+.layout{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-bottom:16px}.section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.section-title h2{font-size:17px;margin:0}.muted{color:var(--muted)}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}label{font-size:13px;color:var(--muted);font-weight:600}input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fff;color:var(--ink);outline:none}input:focus,select:focus{border-color:#7da181;box-shadow:0 0 0 3px #315c3b14}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid var(--line);font-size:14px}th{font-size:12px;color:var(--muted);font-weight:700}td.num,th.num{text-align:right}.tablewrap{overflow:auto}.pill{display:inline-block;padding:4px 8px;border-radius:30px;background:var(--green2);color:var(--green);font-size:12px;font-weight:700}.empty{text-align:center;color:var(--muted);padding:25px}.toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.toolbar .field{min-width:160px}.barlist{display:flex;flex-direction:column;gap:10px}.barrow{display:grid;grid-template-columns:95px 1fr 75px;gap:10px;align-items:center;font-size:13px}.bartrack{height:10px;background:#edf0e9;border-radius:20px;overflow:hidden}.barfill{height:100%;background:#70936d;border-radius:20px}.notice{padding:11px 13px;border-radius:10px;background:#fff7e7;color:#76561b;font-size:13px;margin-bottom:14px}
+#login{max-width:420px;margin:9vh auto;padding:26px}.loginlogo{text-align:center;font-size:42px}.login-title{text-align:center;margin:8px 0 20px}.login-title h1{margin:0 0 4px}.login-title p{margin:0;color:var(--muted)}.hidden{display:none!important}.status{font-size:13px;color:var(--muted)}.toast{position:fixed;right:20px;bottom:20px;background:#243b29;color:white;padding:12px 16px;border-radius:12px;box-shadow:var(--shadow);z-index:5;max-width: min(420px,calc(100vw - 40px))}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}.wrap{padding:16px}.top{align-items:flex-start}}@media(max-width:480px){.grid{gap:9px}.metric strong{font-size:24px}.card{padding:14px}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.brand h1{font-size:18px}}
+</style>
+</head>
+<body>
+<div id="login" class="card">
+  <div class="loginlogo">🍯</div><div class="login-title"><h1>Quản lý mật ong</h1><p>Đăng nhập tài khoản chủ</p></div>
+  <div class="field"><label>Email</label><input id="email" type="email" autocomplete="username" placeholder="Email đăng nhập"></div>
+  <div class="field" style="margin-top:12px"><label>Mật khẩu</label><input id="password" type="password" autocomplete="current-password" placeholder="Mật khẩu"></div>
+  <button class="primary" style="width:100%;margin-top:17px" id="loginBtn">Đăng nhập</button>
+  <p id="loginError" class="status" style="color:#b33b32"></p>
+  <p class="status">Tài khoản được tạo trong Supabase Dashboard. App không mở đăng ký công khai.</p>
+</div>
+
+<main id="app" class="wrap hidden">
+  <header class="top">
+    <div class="brand"><div class="logo">🍯</div><div><h1>Quản lý mật ong</h1><p>Theo dõi sản lượng bán hàng</p></div></div>
+    <div style="display:flex;align-items:center;gap:10px"><span id="userEmail" class="status"></span><button class="secondary" id="logoutBtn">Đăng xuất</button></div>
+  </header>
+  <div id="configNotice" class="notice hidden">Anh chưa cấu hình Supabase. Mở file <b>index.html</b>, thay SUPABASE_URL và SUPABASE_ANON_KEY ở đầu phần cấu hình.</div>
+  <section class="toolbar" style="margin-bottom:14px">
+    <div class="field"><label>Ngày thống kê</label><input id="selectedDate" type="date"></div>
+    <div class="field"><label>Tháng thống kê</label><input id="selectedMonth" type="month"></div>
+    <button class="secondary" id="todayBtn">Hôm nay</button>
+    <button class="secondary" id="exportBtn">Xuất Excel (CSV)</button>
+  </section>
+  <section class="grid">
+    <div class="card metric"><span>Tổng lít trong ngày</span><strong id="dayLiters">0</strong><small>Lít mật ong thực nhận</small></div>
+    <div class="card metric"><span>Số đơn trong ngày</span><strong id="dayOrders">0</strong><small>Đơn đã ghi nhận</small></div>
+    <div class="card metric"><span>Tổng lít trong tháng</span><strong id="monthLiters">0</strong><small id="monthLabel">Tháng này</small></div>
+    <div class="card metric"><span>Số đơn trong tháng</span><strong id="monthOrders">0</strong><small>Đơn đã ghi nhận</small></div>
+  </section>
+  <section class="layout">
+    <div class="card">
+      <div class="section-title"><h2 id="orderFormTitle">➕ Nhập đơn hàng</h2><span class="pill">Tự tính số lít</span></div>
+      <div class="formgrid">
+        <div class="field full"><label>Combo bán</label><select id="orderCombo"></select></div>
+        <div class="field"><label>Số đơn / số combo</label><input id="orderQty" type="number" min="1" step="1" value="1"></div>
+        <div class="field"><label>Ngày bán</label><input id="orderDate" type="date"></div>
+        <div class="field full"><label>Ghi chú (không bắt buộc)</label><input id="orderNote" placeholder="Ví dụ: khách mua tại cửa hàng"></div>
+      </div>
+      <div style="margin-top:13px;background:#f4f7f1;border-radius:12px;padding:13px;display:flex;justify-content:space-between;align-items:center"><span class="muted">Tổng lít đơn này</span><strong style="font-size:24px;color:var(--green)" id="orderPreview">1 lít</strong></div>
+      <div class="actions"><button class="primary" id="saveOrderBtn">Lưu đơn hàng</button><button class="ghost hidden" id="cancelEditBtn">Hủy sửa</button></div>
+    </div>
+    <div class="card">
+      <div class="section-title"><h2>⚙️ Quản lý combo</h2><span class="status">Tự thêm combo</span></div>
+      <div class="formgrid">
+        <div class="field"><label>Tên combo</label><input id="comboName" placeholder="Ví dụ: 3 tặng 1"></div>
+        <div class="field"><label>Số lít thực nhận</label><input id="comboLiters" type="number" min="0.01" step="0.01" placeholder="Ví dụ: 4"></div>
+      </div>
+      <div class="actions"><button class="secondary" id="saveComboBtn">Thêm combo</button><button class="ghost hidden" id="cancelComboBtn">Hủy sửa</button></div>
+      <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Combo</th><th class="num">Lít nhận</th><th></th></tr></thead><tbody id="comboRows"><tr><td colspan="3" class="empty">Chưa có combo</td></tr></tbody></table></div>
+    </div>
+  </section>
+  <section class="layout">
+    <div class="card">
+      <div class="section-title"><h2>📋 Đơn hàng trong ngày</h2><span id="orderDateLabel" class="status"></span></div>
+      <div class="tablewrap"><table><thead><tr><th>Combo</th><th class="num">Số đơn</th><th class="num">Tổng lít</th><th></th></tr></thead><tbody id="orderRows"><tr><td colspan="4" class="empty">Chưa có đơn hàng</td></tr></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="section-title"><h2>📈 Sản lượng theo ngày</h2><span class="status">Trong tháng đã chọn</span></div>
+      <div id="dailyBars" class="barlist"><div class="empty">Chưa có dữ liệu</div></div>
+    </div>
+  </section>
+</main>
+<div id="toast" class="toast hidden"></div>
+<script>
+// 1) Dán thông tin project Supabase riêng của anh vào đây.
+const SUPABASE_URL = "https://urtwzghfbfxzhxdsiuhv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_qKTbTV5w-ewyCm8Xpe9mcg_vJgMZV0Y";
+
+let sb=null, currentUser=null, combos=[], orders=[], editingOrder=null, editingCombo=null;
+const $=id=>document.getElementById(id);
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const monthNow=()=>today().slice(0,7);
+const fmt=n=>Number(n||0).toLocaleString('vi-VN',{maximumFractionDigits:2});
+function toast(msg){$('toast').textContent=msg;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),2800)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function configured(){return SUPABASE_URL.startsWith('https://')&&!SUPABASE_ANON_KEY.startsWith('YOUR_')}
+function setLogin(show){$('login').classList.toggle('hidden',!show);$('app').classList.toggle('hidden',show)}
+async function init(){
+  $('selectedDate').value=today();$('selectedMonth').value=monthNow();$('orderDate').value=today();
+  if(!configured()){$('configNotice').classList.remove('hidden');return}
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){currentUser=session.user;await showApp()}
+}
+async function login(){
+  $('loginError').textContent='';
+  if(!configured()){$('loginError').textContent='Anh cần cấu hình URL và Anon Key trong file index.html trước.';return}
+  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+  if(error){$('loginError').textContent=error.message;return}
+  currentUser=data.user;await showApp();
+}
+async function showApp(){setLogin(false);$('userEmail').textContent=currentUser.email||'';await refreshAll()}
+async function logout(){await sb.auth.signOut();currentUser=null;setLogin(true)}
+async function refreshAll(){
+  const [c,o]=await Promise.all([
+    sb.from('honey_combos').select('*').order('created_at',{ascending:true}),
+    sb.from('honey_orders').select('*').order('sale_date',{ascending:false}).order('created_at',{ascending:false})
+  ]);
+  if(c.error||o.error){toast((c.error||o.error).message);return}
+  combos=c.data||[];orders=o.data||[];renderAll();
+}
+function renderAll(){
+  renderCombos();renderComboSelect();renderOrders();renderStats();
+}
+function renderCombos(){
+  $('comboRows').innerHTML=combos.length?combos.map(c=>`<tr><td>${esc(c.name)}</td><td class="num">${fmt(c.liters_per_order)} lít</td><td class="num"><button class="ghost" onclick="editCombo('${c.id}')">Sửa</button><button class="ghost" onclick="deleteCombo('${c.id}')">Xóa</button></td></tr>`).join(''):'<tr><td colspan="3" class="empty">Chưa có combo. Hãy thêm combo đầu tiên.</td></tr>';
+}
+function renderComboSelect(){
+  const old=$('orderCombo').value;
+  $('orderCombo').innerHTML=combos.map(c=>`<option value="${c.id}">${esc(c.name)} — ${fmt(c.liters_per_order)} lít</option>`).join('')||'<option value="">Chưa có combo</option>';
+  if(combos.some(c=>c.id===old))$('orderCombo').value=old;
+  preview();
+}
+function preview(){const c=combos.find(x=>x.id===$('orderCombo').value);const q=Math.max(0,Number($('orderQty').value)||0);$('orderPreview').textContent=`${fmt((c?.liters_per_order||0)*q)} lít`}
+function renderOrders(){
+  const date=$('selectedDate').value;const list=orders.filter(o=>o.sale_date===date);
+  $('orderDateLabel').textContent=date.split('-').reverse().join('/');
+  $('orderRows').innerHTML=list.length?list.map(o=>`<tr><td><b>${esc(o.combo_name_snapshot)}</b><div class="muted" style="font-size:12px">${esc(o.note||'')}</div></td><td class="num">${o.quantity}</td><td class="num"><b>${fmt(o.total_liters)} lít</b></td><td class="num"><button class="ghost" onclick="editOrder('${o.id}')">Sửa</button><button class="ghost" onclick="deleteOrder('${o.id}')">Xóa</button></td></tr>`).join(''):'<tr><td colspan="4" class="empty">Ngày này chưa có đơn hàng</td></tr>';
+}
+function renderStats(){
+  const d=$('selectedDate').value,m=$('selectedMonth').value;
+  const day=orders.filter(o=>o.sale_date===d), mon=orders.filter(o=>o.sale_date?.startsWith(m));
+  $('dayLiters').textContent=fmt(day.reduce((s,o)=>s+Number(o.total_liters),0));
+  $('dayOrders').textContent=day.reduce((s,o)=>s+Number(o.quantity),0);
+  $('monthLiters').textContent=fmt(mon.reduce((s,o)=>s+Number(o.total_liters),0));
+  $('monthOrders').textContent=mon.reduce((s,o)=>s+Number(o.quantity),0);
+  $('monthLabel').textContent=m?`Tháng ${m.slice(5)}/${m.slice(0,4)}`:'Tháng đã chọn';
+  const by={};mon.forEach(o=>by[o.sale_date]=(by[o.sale_date]||0)+Number(o.total_liters));
+  const entries=Object.entries(by).sort((a,b)=>a[0].localeCompare(b[0]));const max=Math.max(1,...entries.map(x=>x[1]));
+  $('dailyBars').innerHTML=entries.length?entries.map(([day,val])=>`<div class="barrow"><span>${day.slice(8)}/${day.slice(5)}</span><div class="bartrack"><div class="barfill" style="width:${val/max*100}%"></div></div><b style="text-align:right">${fmt(val)} l</b></div>`).join(''):'<div class="empty">Tháng này chưa có dữ liệu</div>';
+}
+async function saveCombo(){
+  const name=$('comboName').value.trim(), liters=Number($('comboLiters').value);
+  if(!name||!Number.isFinite(liters)||liters<=0){toast('Nhập tên combo và số lít lớn hơn 0.');return}
+  let res;
+  if(editingCombo)res=await sb.from('honey_combos').update({name,liters_per_order:liters}).eq('id',editingCombo).select();
+  else res=await sb.from('honey_combos').insert({user_id:currentUser.id,name,liters_per_order:liters}).select();
+  if(res.error){toast(res.error.message);return}
+  editingCombo=null;$('comboName').value='';$('comboLiters').value='';$('saveComboBtn').textContent='Thêm combo';$('cancelComboBtn').classList.add('hidden');await refreshAll();toast('Đã lưu combo.');
+}
+function editCombo(id){const c=combos.find(x=>x.id===id);if(!c)return;editingCombo=id;$('comboName').value=c.name;$('comboLiters').value=c.liters_per_order;$('saveComboBtn').textContent='Cập nhật combo';$('cancelComboBtn').classList.remove('hidden')}
+function cancelComboEdit(){editingCombo=null;$('comboName').value='';$('comboLiters').value='';$('saveComboBtn').textContent='Thêm combo';$('cancelComboBtn').classList.add('hidden')}
+async function deleteCombo(id){if(!confirm('Xóa combo này? Đơn hàng cũ vẫn giữ nguyên số lít đã ghi nhận.'))return;const {error}=await sb.from('honey_combos').delete().eq('id',id);if(error){toast(error.message);return}await refreshAll();toast('Đã xóa combo.')}
+async function saveOrder(){
+  const combo=combos.find(c=>c.id===$('orderCombo').value),qty=Number($('orderQty').value),date=$('orderDate').value;
+  if(!combo){toast('Anh hãy tạo combo trước khi nhập đơn.');return}
+  if(!Number.isInteger(qty)||qty<1||!date){toast('Kiểm tra số đơn và ngày bán.');return}
+  const payload={combo_id:combo.id,combo_name_snapshot:combo.name,liters_per_order_snapshot:Number(combo.liters_per_order),quantity:qty,total_liters:Number((combo.liters_per_order*qty).toFixed(3)),sale_date:date,note:$('orderNote').value.trim()};
+  let res;
+  if(editingOrder)res=await sb.from('honey_orders').update(payload).eq('id',editingOrder).select();
+  else res=await sb.from('honey_orders').insert({...payload,user_id:currentUser.id}).select();
+  if(res.error){toast(res.error.message);return}
+  resetOrderForm();await refreshAll();toast('Đã lưu đơn hàng.');
+}
+function editOrder(id){const o=orders.find(x=>x.id===id);if(!o)return;editingOrder=id;
+  if(combos.some(c=>c.id===o.combo_id))$('orderCombo').value=o.combo_id;
+  $('orderQty').value=o.quantity;$('orderDate').value=o.sale_date;$('orderNote').value=o.note||'';
+  $('orderFormTitle').textContent='✏️ Sửa đơn hàng';$('saveOrderBtn').textContent='Cập nhật đơn';$('cancelEditBtn').classList.remove('hidden');preview();window.scrollTo({top:0,behavior:'smooth'});
+}
+function resetOrderForm(){editingOrder=null;$('orderQty').value=1;$('orderDate').value=$('selectedDate').value||today();$('orderNote').value='';$('orderFormTitle').textContent='➕ Nhập đơn hàng';$('saveOrderBtn').textContent='Lưu đơn hàng';$('cancelEditBtn').classList.add('hidden');preview()}
+async function deleteOrder(id){if(!confirm('Anh chắc chắn muốn xóa đơn này?'))return;const {error}=await sb.from('honey_orders').delete().eq('id',id);if(error){toast(error.message);return}await refreshAll();toast('Đã xóa đơn hàng.')}
+function exportCsv(){
+  const m=$('selectedMonth').value;const list=orders.filter(o=>o.sale_date.startsWith(m));
+  const rows=[['Ngày bán','Tên combo','Số đơn','Lít mỗi combo','Tổng lít','Ghi chú'],...list.map(o=>[o.sale_date,o.combo_name_snapshot,o.quantity,o.liters_per_order_snapshot,o.total_liters,o.note||''])];
+  const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`mat-ong-${m}.csv`;a.click();URL.revokeObjectURL(url);
+}
+$('loginBtn').addEventListener('click',login);$('password').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+$('logoutBtn').addEventListener('click',logout);$('saveComboBtn').addEventListener('click',saveCombo);$('cancelComboBtn').addEventListener('click',cancelComboEdit);
+$('saveOrderBtn').addEventListener('click',saveOrder);$('cancelEditBtn').addEventListener('click',resetOrderForm);
+$('orderQty').addEventListener('input',preview);$('orderCombo').addEventListener('change',preview);
+$('selectedDate').addEventListener('change',()=>{renderOrders();renderStats()});$('selectedMonth').addEventListener('change',renderStats);
+$('todayBtn').addEventListener('click',()=>{$('selectedDate').value=today();$('selectedMonth').value=monthNow();$('orderDate').value=today();renderOrders();renderStats()});
+$('exportBtn').addEventListener('click',exportCsv);
+init();
+</script>
+</body></html>
