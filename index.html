@@ -92,6 +92,15 @@ button{touch-action:manipulation;min-height:42px}
     <div style="display:flex;align-items:center;gap:10px"><span id="userEmail" class="status"></span><button class="secondary" id="logoutBtn">Đăng xuất</button></div>
   </header>
   <div id="configNotice" class="notice hidden">Anh chưa cấu hình Supabase. Mở file <b>index.html</b>, thay SUPABASE_URL và SUPABASE_ANON_KEY ở đầu phần cấu hình.</div>
+  <section class="card backup-card" style="margin-bottom:14px">
+    <div class="section-title"><div><h2>🛡️ Sao lưu & khôi phục dữ liệu</h2><div id="backupStatus" class="status" style="margin-top:4px">Tự động lưu bản sao lưu trên thiết bị này sau mỗi lần đồng bộ dữ liệu.</div></div><span class="pill">Không tốn phí Supabase</span></div>
+    <div class="backup-actions">
+      <button class="secondary" id="downloadBackupBtn">⬇ Tải bản sao lưu</button>
+      <button class="secondary" id="restoreBackupBtn">⬆ Nhập file khôi phục</button>
+      <input id="backupFile" type="file" accept=".json,application/json" class="hidden">
+    </div>
+    <p class="status" style="margin:10px 0 0">Bản tự động được giữ trong trình duyệt của thiết bị này. Anh nên tải file JSON về máy định kỳ để lưu thêm một bản an toàn.</p>
+  </section>
   <section class="toolbar" style="margin-bottom:14px">
     <div class="field"><label>Ngày thống kê</label><input id="selectedDate" type="date"></div>
     <div class="field"><label>Tháng thống kê</label><input id="selectedMonth" type="month"></div>
@@ -140,10 +149,12 @@ button{touch-action:manipulation;min-height:42px}
 <div id="toast" class="toast hidden"></div>
 <script>
 // 1) Dán thông tin project Supabase riêng của anh vào đây.
-const SUPABASE_URL = "https://urtwzghfbfxzhxdsiuhv.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_qKTbTV5w-ewyCm8Xpe9mcg_vJgMZV0Y";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 let sb=null, currentUser=null, combos=[], orders=[], editingOrder=null, editingCombo=null;
+const BACKUP_VERSION=1;
+const backupKey=()=>`honey_manager_backup_${currentUser?.id||'guest'}`;
 const $=id=>document.getElementById(id);
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const monthNow=()=>today().slice(0,7);
@@ -166,7 +177,7 @@ async function login(){
   if(error){$('loginError').textContent=error.message;return}
   currentUser=data.user;await showApp();
 }
-async function showApp(){setLogin(false);$('userEmail').textContent=currentUser.email||'';await refreshAll()}
+async function showApp(){setLogin(false);$('userEmail').textContent=currentUser.email||'';loadLocalBackupStatus();await refreshAll()}
 async function logout(){await sb.auth.signOut();currentUser=null;setLogin(true)}
 async function refreshAll(){
   const [c,o]=await Promise.all([
@@ -175,6 +186,7 @@ async function refreshAll(){
   ]);
   if(c.error||o.error){toast((c.error||o.error).message);return}
   combos=c.data||[];orders=o.data||[];renderAll();
+  saveAutomaticBackup();
 }
 function renderAll(){
   renderCombos();renderComboSelect();renderOrders();renderStats();
@@ -236,6 +248,50 @@ function editOrder(id){const o=orders.find(x=>x.id===id);if(!o)return;editingOrd
 }
 function resetOrderForm(){editingOrder=null;$('orderQty').value=1;$('orderDate').value=$('selectedDate').value||today();$('orderNote').value='';$('orderFormTitle').textContent='➕ Nhập đơn hàng';$('saveOrderBtn').textContent='Lưu đơn hàng';$('cancelEditBtn').classList.add('hidden');preview()}
 async function deleteOrder(id){if(!confirm('Anh chắc chắn muốn xóa đơn này?'))return;const {error}=await sb.from('honey_orders').delete().eq('id',id);if(error){toast(error.message);return}await refreshAll();toast('Đã xóa đơn hàng.')}
+function makeBackup(){
+  return {app:'honey-manager',version:BACKUP_VERSION,exported_at:new Date().toISOString(),owner_email:currentUser?.email||'',combos,orders};
+}
+function saveAutomaticBackup(){
+  if(!currentUser)return;
+  try{
+    const data=makeBackup();localStorage.setItem(backupKey(),JSON.stringify(data));
+    $('backupStatus').textContent=`Đã tự động sao lưu trên thiết bị này lúc ${new Date().toLocaleString('vi-VN')}.`;
+  }catch(e){
+    $('backupStatus').textContent='Không đủ dung lượng lưu bản tự động trên trình duyệt. Anh hãy tải file sao lưu về máy.';
+  }
+}
+function downloadJsonBackup(){
+  if(!currentUser){toast('Anh cần đăng nhập trước.');return}
+  const blob=new Blob([JSON.stringify(makeBackup(),null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`sao-luu-mat-ong-${today()}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  toast('Đã tạo file sao lưu JSON.');
+}
+function validateBackup(data){
+  if(!data||data.app!=='honey-manager'||!Array.isArray(data.combos)||!Array.isArray(data.orders))return 'File không đúng định dạng sao lưu của app mật ong.';
+  if(data.combos.some(x=>!x.id||!x.name||!(Number(x.liters_per_order)>0)))return 'Dữ liệu combo trong file không hợp lệ.';
+  if(data.orders.some(x=>!x.id||!x.combo_name_snapshot||!x.sale_date||!(Number(x.quantity)>0)||!(Number(x.total_liters)>0)))return 'Dữ liệu đơn hàng trong file không hợp lệ.';
+  return '';
+}
+async function restoreBackupFile(file){
+  if(!file||!currentUser)return;
+  let data;
+  try{data=JSON.parse(await file.text())}catch(e){toast('Không đọc được file JSON.');return}
+  const invalid=validateBackup(data);if(invalid){toast(invalid);return}
+  const ok=confirm(`File sao lưu có ${data.combos.length} combo và ${data.orders.length} đơn hàng.\n\nKhôi phục sẽ nhập/gộp dữ liệu theo ID, không xóa dữ liệu hiện có. Tiếp tục?`);
+  if(!ok)return;
+  const importedCombos=data.combos.map(({id,name,liters_per_order,created_at,updated_at})=>({id,user_id:currentUser.id,name,liters_per_order, ...(created_at?{created_at}:{}),...(updated_at?{updated_at}:{})}));
+  const importedOrders=data.orders.map(o=>({id:o.id,user_id:currentUser.id,combo_id:o.combo_id||null,combo_name_snapshot:o.combo_name_snapshot,liters_per_order_snapshot:o.liters_per_order_snapshot||Number(o.total_liters)/Number(o.quantity),quantity:o.quantity,total_liters:o.total_liters,sale_date:o.sale_date,note:o.note||null,...(o.created_at?{created_at:o.created_at}:{}),...(o.updated_at?{updated_at:o.updated_at}:{})}));
+  // Import combos first so order foreign keys can resolve.
+  if(importedCombos.length){const {error}=await sb.from('honey_combos').upsert(importedCombos,{onConflict:'id'});if(error){toast('Khôi phục combo lỗi: '+error.message);return}}
+  if(importedOrders.length){const {error}=await sb.from('honey_orders').upsert(importedOrders,{onConflict:'id'});if(error){toast('Khôi phục đơn hàng lỗi: '+error.message);return}}
+  await refreshAll();toast('Khôi phục dữ liệu thành công. Dữ liệu hiện tại được gộp theo ID, không bị xóa.');
+}
+function loadLocalBackupStatus(){
+  if(!currentUser)return;
+  try{const raw=localStorage.getItem(backupKey());if(raw){const b=JSON.parse(raw);$('backupStatus').textContent=`Có bản tự động trên thiết bị này: ${new Date(b.exported_at).toLocaleString('vi-VN')}.`;}}
+  catch(e){$('backupStatus').textContent='Không đọc được bản tự động trên thiết bị này.';}
+}
 function exportCsv(){
   const m=$('selectedMonth').value;const list=orders.filter(o=>o.sale_date.startsWith(m));
   const rows=[['Ngày bán','Tên combo','Số đơn','Lít mỗi combo','Tổng lít','Ghi chú'],...list.map(o=>[o.sale_date,o.combo_name_snapshot,o.quantity,o.liters_per_order_snapshot,o.total_liters,o.note||''])];
@@ -249,6 +305,9 @@ $('orderQty').addEventListener('input',preview);$('orderCombo').addEventListener
 $('selectedDate').addEventListener('change',()=>{renderOrders();renderStats()});$('selectedMonth').addEventListener('change',renderStats);
 $('todayBtn').addEventListener('click',()=>{$('selectedDate').value=today();$('selectedMonth').value=monthNow();$('orderDate').value=today();renderOrders();renderStats()});
 $('exportBtn').addEventListener('click',exportCsv);
+$('downloadBackupBtn').addEventListener('click',downloadJsonBackup);
+$('restoreBackupBtn').addEventListener('click',()=>$('backupFile').click());
+$('backupFile').addEventListener('change',e=>{const f=e.target.files?.[0];if(f)restoreBackupFile(f);e.target.value='';});
 init();
 </script>
 </body></html>
